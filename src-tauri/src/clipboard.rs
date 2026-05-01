@@ -13,11 +13,25 @@ use tauri::{AppHandle, Emitter};
 #[derive(Default)]
 pub struct ClipboardCache {
     last_hash: Option<String>,
+    last_change_count: Option<i64>,
 }
 
 impl ClipboardCache {
     pub fn remember(&mut self, hash: String) {
         self.last_hash = Some(hash);
+    }
+
+    pub fn remember_change_count(&mut self, change_count: i64) {
+        self.last_change_count = Some(change_count);
+    }
+
+    fn should_check_change_count(&mut self, change_count: i64) -> bool {
+        if self.last_change_count == Some(change_count) {
+            return false;
+        }
+
+        self.last_change_count = Some(change_count);
+        true
     }
 
     fn is_last(&self, hash: &str) -> bool {
@@ -42,6 +56,11 @@ pub fn start_monitor(app: AppHandle, state: Arc<AppState>) {
             };
 
             if !settings.paused {
+                if !should_check_clipboard(&state) {
+                    thread::sleep(Duration::from_millis(700));
+                    continue;
+                }
+
                 if let Err(err) = capture_once(&app, &state, &settings, &mut clipboard) {
                     eprintln!("Clipboard capture skipped: {err}");
                 }
@@ -90,6 +109,9 @@ pub fn copy_item_to_system_clipboard(state: &Arc<AppState>, id: i64) -> Result<(
 
     if let Ok(mut cache) = state.clipboard_cache.lock() {
         cache.remember(hash);
+        if let Some(change_count) = pasteboard_change_count() {
+            cache.remember_change_count(change_count);
+        }
     }
 
     Ok(())
@@ -103,6 +125,9 @@ pub fn copy_text_to_system_clipboard(state: &Arc<AppState>, text: String) -> Res
 
     if let Ok(mut cache) = state.clipboard_cache.lock() {
         cache.remember(hash_bytes("text", text.trim().as_bytes()));
+        if let Some(change_count) = pasteboard_change_count() {
+            cache.remember_change_count(change_count);
+        }
     }
 
     Ok(())
@@ -171,6 +196,28 @@ fn should_process(state: &Arc<AppState>, hash: &str) -> Result<bool, String> {
         .lock()
         .map_err(|err| err.to_string())?;
     Ok(!cache.is_last(hash))
+}
+
+fn should_check_clipboard(state: &Arc<AppState>) -> bool {
+    let Some(change_count) = pasteboard_change_count() else {
+        return true;
+    };
+    let Ok(mut cache) = state.clipboard_cache.lock() else {
+        return true;
+    };
+    cache.should_check_change_count(change_count)
+}
+
+#[cfg(target_os = "macos")]
+fn pasteboard_change_count() -> Option<i64> {
+    use objc2_app_kit::NSPasteboard;
+
+    Some(NSPasteboard::generalPasteboard().changeCount() as i64)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn pasteboard_change_count() -> Option<i64> {
+    None
 }
 
 fn text_item(content: String, source_meta: SourceMetadata, hash: String) -> NewClipboardItem {
