@@ -73,6 +73,13 @@ fn open_source_url(state: State<'_, Arc<AppState>>, id: i64) -> Result<(), Strin
 }
 
 #[tauri::command]
+fn open_item_url(app: AppHandle, state: State<'_, Arc<AppState>>, id: i64) -> Result<(), String> {
+    let url = state.store.get_openable_url(id)?;
+    hide_main_window_without_restore(&app);
+    open_url(&url)
+}
+
+#[tauri::command]
 fn delete_item(state: State<'_, Arc<AppState>>, id: i64) -> Result<(), String> {
     state.store.delete_item(id)
 }
@@ -174,6 +181,7 @@ pub fn run() {
             copy_item,
             copy_source_url,
             open_source_url,
+            open_item_url,
             delete_item,
             clear_history,
             get_settings,
@@ -267,6 +275,12 @@ fn hide_main_window(app: &AppHandle) {
         let _ = window.hide();
     }
     restore_last_active_app(app);
+}
+
+fn hide_main_window_without_restore(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
 }
 
 fn focus_window(window: &WebviewWindow) {

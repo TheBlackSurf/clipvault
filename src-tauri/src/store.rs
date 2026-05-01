@@ -268,6 +268,21 @@ LIMIT ?3
         .map_err(|_| "Ten wpis nie ma zapisanego linku źródłowego".to_string())
     }
 
+    pub fn get_openable_url(&self, id: i64) -> Result<String, String> {
+        let conn = self.conn.lock().map_err(|err| err.to_string())?;
+        conn.query_row(
+            r#"
+SELECT coalesce(nullif(source_url, ''), nullif(url, ''))
+FROM clipboard_items
+WHERE id = ?1
+  AND coalesce(nullif(source_url, ''), nullif(url, '')) IS NOT NULL
+"#,
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Ten wpis nie ma linku do otwarcia".to_string())
+    }
+
     pub fn delete_item(&self, id: i64) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|err| err.to_string())?;
         conn.execute("DELETE FROM clipboard_items WHERE id = ?1", [id])

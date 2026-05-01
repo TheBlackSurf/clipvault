@@ -65,6 +65,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [message, setMessage] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLElement>(null)
 
   const focusSearch = useCallback(() => {
     requestAnimationFrame(() => {
@@ -108,7 +109,13 @@ function App() {
     listen<Settings>('settings-updated', (event) => setSettings(event.payload)).then((unlisten) =>
       unlisteners.push(unlisten),
     )
-    listen('focus-search', focusSearch).then((unlisten) => unlisteners.push(unlisten))
+    listen('focus-search', () => {
+      setSelected(0)
+      requestAnimationFrame(() => {
+        resultsRef.current?.scrollTo({ top: 0 })
+        focusSearch()
+      })
+    }).then((unlisten) => unlisteners.push(unlisten))
     return () => {
       unlisteners.forEach((unlisten) => unlisten())
     }
@@ -129,6 +136,15 @@ function App() {
 
   async function openSourceUrl(item: ClipboardItem) {
     await invoke('open_source_url', { id: item.id })
+  }
+
+  async function openItemUrl(item: ClipboardItem) {
+    try {
+      await invoke('open_item_url', { id: item.id })
+    } catch {
+      setMessage('Ten wpis nie ma linku do otwarcia')
+      window.setTimeout(() => setMessage(''), 1400)
+    }
   }
 
   async function deleteItem(item: ClipboardItem) {
@@ -166,6 +182,10 @@ function App() {
     }
     if (event.key === 'Enter' && selectedItem) {
       event.preventDefault()
+      if (event.metaKey || event.ctrlKey) {
+        openItemUrl(selectedItem)
+        return
+      }
       copyItem(selectedItem)
     }
     if (event.key === 'Escape') {
@@ -291,7 +311,7 @@ function App() {
         </section>
       )}
 
-      <section className="results" aria-label="Historia schowka">
+      <section className="results" aria-label="Historia schowka" ref={resultsRef}>
         {items.length === 0 ? (
           <div className="empty-state">
             <Clipboard size={36} />
