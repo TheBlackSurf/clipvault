@@ -216,6 +216,10 @@
   color: var(--link);
 }
 
+.text-preview {
+  color: var(--text);
+}
+
 .thumb {
   width: 72px;
   height: 48px;

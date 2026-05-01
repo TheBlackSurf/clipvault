@@ -333,7 +333,7 @@ function App() {
               ) : (
                 <div className="content">
                   <div className="title-line">
-                    <span>{item.kind === 'link' ? item.domain ?? item.url : item.content}</span>
+                    <span>{itemTitle(item)}</span>
                   </div>
                   <ItemSource item={item} />
                 </div>
@@ -407,9 +407,19 @@ function iconForKind(kind: ClipboardKind) {
   return <Type size={18} />
 }
 
+function itemTitle(item: ClipboardItem) {
+  if (item.kind === 'link') return item.domain ?? item.url
+  return textLines(item.content)[0] ?? item.content
+}
+
 function ItemSource({ item }: { item: ClipboardItem }) {
   if (item.kind === 'link') {
     return <p className="item-url">{item.url}</p>
+  }
+
+  const lines = textLines(item.content)
+  if (lines.length > 1) {
+    return <p className="text-preview">{lines.slice(1).join('  ')}</p>
   }
 
   if (item.sourceTitle) {
@@ -417,6 +427,13 @@ function ItemSource({ item }: { item: ClipboardItem }) {
   }
 
   return <p>{item.sourceApp ?? ''}</p>
+}
+
+function textLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
 }
 
 function formatTime(value: number) {
