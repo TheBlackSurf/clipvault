@@ -16,7 +16,7 @@ use std::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    App, AppHandle, Emitter, Manager, State, WebviewWindow, WindowEvent,
+    ActivationPolicy, App, AppHandle, Emitter, Manager, State, WebviewWindow, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -147,6 +147,13 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                app.set_activation_policy(ActivationPolicy::Accessory);
+                app.set_dock_visibility(false);
+                keep_app_out_of_switcher(app.handle());
+            }
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -268,6 +275,7 @@ fn show_main_window(app: &AppHandle) {
         focus_window(&window);
         let _ = app.emit("focus-search", ());
     }
+    keep_app_out_of_switcher(app);
 }
 
 fn hide_main_window(app: &AppHandle) {
@@ -288,6 +296,15 @@ fn focus_window(window: &WebviewWindow) {
     let _ = window.unminimize();
     let _ = window.set_focus();
 }
+
+#[cfg(target_os = "macos")]
+fn keep_app_out_of_switcher(app: &AppHandle) {
+    let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+    let _ = app.set_dock_visibility(false);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn keep_app_out_of_switcher(_app: &AppHandle) {}
 
 fn open_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
