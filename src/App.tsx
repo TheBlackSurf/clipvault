@@ -74,10 +74,12 @@ function App() {
     })
   }, [])
 
-  const loadItems = useCallback(async (nextQuery: string) => {
+  const loadItems = useCallback(async (nextQuery: string, resetSelection = false) => {
     const result = await invoke<ClipboardItem[]>('get_items', { query: nextQuery })
     setItems(result)
-    setSelected((current) => Math.min(current, Math.max(result.length - 1, 0)))
+    setSelected((current) =>
+      resetSelection ? 0 : Math.min(current, Math.max(result.length - 1, 0)),
+    )
   }, [])
 
   const loadSettings = useCallback(async () => {
@@ -110,7 +112,8 @@ function App() {
       unlisteners.push(unlisten),
     )
     listen('focus-search', () => {
-      setSelected(0)
+      setQuery('')
+      loadItems('', true)
       requestAnimationFrame(() => {
         resultsRef.current?.scrollTo({ top: 0 })
         focusSearch()
